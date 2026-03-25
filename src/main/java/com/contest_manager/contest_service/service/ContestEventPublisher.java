@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 public class ContestEventPublisher {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
-    private static final String TOPIC = "contest-events";
+    private static final String TOPIC = "contest-events-v2";
 
     public void publishContestStartedEvent(ContestStartedEvent event) {
         log.info("Publishing ContestStartedEvent to topic '{}' for contestId: {}", TOPIC, event.getContestId());
