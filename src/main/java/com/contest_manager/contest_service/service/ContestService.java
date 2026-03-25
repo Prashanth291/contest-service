@@ -165,15 +165,18 @@ public class ContestService {
 
     // --- Helper Method ---
     private ContestResponse mapToContestResponse(Contest contest) {
-        List<ContestResponse.ContestProblemDto> problemDtos = contest.getContestProblems().stream()
-                .map(cp -> ContestResponse.ContestProblemDto.builder()
-                        .problemId(cp.getProblem().getId().toString())
-                        .title(cp.getProblem().getTitle())
-                        .label(cp.getLabel())
-                        .problemOrder(cp.getProblemOrder())
-                        .score(cp.getScore() != null ? cp.getScore() : cp.getProblem().getBaseScore())
-                        .build())
-                .collect(Collectors.toList());
+        // Safe null check for the list
+        List<ContestResponse.ContestProblemDto> problemDtos = contest.getContestProblems() == null ?
+                new java.util.ArrayList<>() :
+                contest.getContestProblems().stream()
+                        .map(cp -> ContestResponse.ContestProblemDto.builder()
+                                .problemId(cp.getProblem().getId().toString())
+                                .title(cp.getProblem().getTitle())
+                                .label(cp.getLabel())
+                                .problemOrder(cp.getProblemOrder())
+                                .score(cp.getScore() != null ? cp.getScore() : cp.getProblem().getBaseScore())
+                                .build())
+                        .collect(Collectors.toList());
 
         return ContestResponse.builder()
                 .id(contest.getId().toString())
