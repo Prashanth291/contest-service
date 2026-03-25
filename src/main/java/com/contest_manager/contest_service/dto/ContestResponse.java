@@ -21,6 +21,7 @@ public class ContestResponse {
     private LocalDateTime endTime;
     private ContestStatus status;
     private String createdBy;
+    private String joinCode;
     private List<ContestProblemDto> problems;
 
     @Data

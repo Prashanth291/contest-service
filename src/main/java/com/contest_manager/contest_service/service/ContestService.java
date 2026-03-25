@@ -1,11 +1,9 @@
 package com.contest_manager.contest_service.service;
 
 import com.contest_manager.contest_service.dto.*;
-import com.contest_manager.contest_service.entity.Contest;
-import com.contest_manager.contest_service.entity.ContestProblem;
-import com.contest_manager.contest_service.entity.ContestStatus;
-import com.contest_manager.contest_service.entity.Problem;
+import com.contest_manager.contest_service.entity.*;
 import com.contest_manager.contest_service.repository.ContestProblemRepository;
+import com.contest_manager.contest_service.repository.ContestRegistrationRepository;
 import com.contest_manager.contest_service.repository.ContestRepository;
 import com.contest_manager.contest_service.repository.ProblemRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -26,9 +25,15 @@ public class ContestService {
     private final ProblemRepository problemRepository;
     private final ContestProblemRepository contestProblemRepository;
     private final ContestEventPublisher eventPublisher;
+    private final ContestRegistrationRepository registrationRepository;
 
     @Transactional
     public ContestResponse createContest(ContestRequest request) {
+
+        // Generate a random 8-character string formatted as XXXX-XXXX
+        String rawCode = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
+        String formattedCode = rawCode.substring(0, 4) + "-" + rawCode.substring(4, 8);
+
         Contest contest = Contest.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
@@ -36,6 +41,8 @@ public class ContestService {
                 .endTime(request.getEndTime())
                 .status(ContestStatus.DRAFT) // Always starts as DRAFT
                 .createdBy(request.getCreatedBy())
+                .joinCode(formattedCode)
+                .password(request.getPassword()) // Set the password
                 .build();
 
         Contest savedContest = contestRepository.save(contest);
@@ -88,6 +95,33 @@ public class ContestService {
         contestRepository.deleteById(UUID.fromString(id));
     }
 
+
+    /*
+    * Contest Registration
+    * */
+    public void registerForContest(String joinCode, String userId, JoinContestRequest request) {
+        Contest contest = contestRepository.findByJoinCode(joinCode)
+                .orElseThrow(() -> new RuntimeException("Contest not found with code: " + joinCode));
+
+        // 1. Check password
+        if (contest.getPassword() != null && !contest.getPassword().equals(request.getPassword())) {
+            throw new RuntimeException("Incorrect contest password");
+        }
+
+        // 2. Check if already registered
+        if (registrationRepository.existsByContestIdAndUserId(contest.getId(), userId)) {
+            throw new RuntimeException("User is already registered for this contest");
+        }
+
+        // 3. Save the registration
+        ContestRegistration registration = ContestRegistration.builder()
+                .contest(contest)
+                .userId(userId)
+                .registeredAt(LocalDateTime.now())
+                .build();
+
+        registrationRepository.save(registration);
+    }
     // --- Problem Assignment Logic ---
 
     @Transactional
@@ -186,7 +220,23 @@ public class ContestService {
                 .endTime(contest.getEndTime())
                 .status(contest.getStatus())
                 .createdBy(contest.getCreatedBy())
+                .joinCode(contest.getJoinCode())
                 .problems(problemDtos)
                 .build();
+    }
+
+    public void kickUser(UUID contestId, String participantId, String requesterId) {
+        Contest contest = contestRepository.findById(contestId)
+                .orElseThrow(() -> new RuntimeException("Contest not found"));
+
+        // Only the creator can kick people
+        if (!contest.getCreatedBy().equals(requesterId)) {
+            throw new RuntimeException("Only the contest owner can remove participants");
+        }
+
+        ContestRegistration registration = registrationRepository.findByContestIdAndUserId(contestId, participantId)
+                .orElseThrow(() -> new RuntimeException("Participant is not registered in this contest"));
+
+        registrationRepository.delete(registration);
     }
 }

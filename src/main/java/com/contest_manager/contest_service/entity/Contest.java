@@ -19,6 +19,12 @@ public class Contest {
 
     private String title;
 
+    @Column(name = "join_code", unique = true)
+    private String joinCode;
+
+    @Column(name = "password")
+    private String password;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 
@@ -39,4 +45,5 @@ public class Contest {
     @OneToMany(mappedBy = "contest", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("problemOrder ASC")
     private List<ContestProblem> contestProblems = new ArrayList<>();
+
 }

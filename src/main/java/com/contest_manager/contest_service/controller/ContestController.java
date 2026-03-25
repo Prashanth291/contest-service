@@ -3,6 +3,7 @@ package com.contest_manager.contest_service.controller;
 import com.contest_manager.contest_service.dto.AssignProblemRequest;
 import com.contest_manager.contest_service.dto.ContestRequest;
 import com.contest_manager.contest_service.dto.ContestResponse;
+import com.contest_manager.contest_service.dto.JoinContestRequest;
 import com.contest_manager.contest_service.service.ContestService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/contests")
@@ -68,5 +70,23 @@ public class ContestController {
     public ResponseEntity<String> startContestManually(@PathVariable String id) {
         contestService.startContest(id);
         return ResponseEntity.ok("Contest started and event published to Kafka successfully.");
+    }
+
+    @PostMapping("/join/{joinCode}")
+    public ResponseEntity<String> joinContest(
+            @PathVariable String joinCode,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestBody JoinContestRequest request) {
+        contestService.registerForContest(joinCode, userId, request);
+        return ResponseEntity.ok("Successfully joined the contest!");
+    }
+
+    @DeleteMapping("/{id}/participants/{participantId}")
+    public ResponseEntity<Void> kickParticipant(
+            @PathVariable UUID id,
+            @PathVariable String participantId,
+            @RequestHeader("X-User-Id") String requesterId) {
+        contestService.kickUser(id, participantId, requesterId);
+        return ResponseEntity.noContent().build();
     }
 }

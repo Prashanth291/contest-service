@@ -10,4 +10,5 @@ public class ContestRequest {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private String createdBy;
+    private String password;
 }

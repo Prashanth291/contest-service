@@ -7,9 +7,11 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface ContestRepository extends JpaRepository<Contest, UUID> {
     List<Contest> findByStatusAndStartTimeLessThanEqual(ContestStatus status, LocalDateTime time);
+    Optional<Contest> findByJoinCode(String joinCode);
 }
