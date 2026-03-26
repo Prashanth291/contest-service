@@ -197,6 +197,27 @@ public class ContestService {
         log.info("Contest {} successfully started and event published.", id);
     }
 
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 60000) // Wakes up every 60 seconds
+    @Transactional
+    public void autoStartPendingContests() {
+        LocalDateTime now = LocalDateTime.now();
+
+        // Find all contests that haven't started yet but their time has arrived
+        List<Contest> pendingContests = contestRepository.findAll().stream()
+                .filter(c -> c.getStatus() == ContestStatus.DRAFT || c.getStatus() == ContestStatus.SCHEDULED)
+                .filter(c -> c.getStartTime() != null && !now.isBefore(c.getStartTime()))
+                .collect(Collectors.toList());
+
+        for (Contest contest : pendingContests) {
+            try {
+                log.info("Alarm clock triggered! Auto-starting contest: {}", contest.getId());
+                startContest(contest.getId().toString());
+            } catch (Exception e) {
+                log.error("Failed to auto-start contest: {}", contest.getId(), e);
+            }
+        }
+    }
+
     // --- Helper Method ---
     private ContestResponse mapToContestResponse(Contest contest) {
         // Safe null check for the list
