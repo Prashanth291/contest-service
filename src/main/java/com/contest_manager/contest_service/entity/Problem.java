@@ -10,7 +10,11 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "problems")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Problem {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -35,6 +39,9 @@ public class Problem {
 
     private Integer baseScore;
     private String createdBy;
+
+    @Enumerated(EnumType.STRING)
+    private ProblemVisibility visibility;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

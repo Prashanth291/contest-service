@@ -1,6 +1,7 @@
 package com.contest_manager.contest_service.dto;
 
 import com.contest_manager.contest_service.entity.Difficulty;
+import com.contest_manager.contest_service.entity.ProblemVisibility;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -23,6 +24,7 @@ public class ProblemResponse {
     private Difficulty difficulty;
     private Integer baseScore;
     private String createdBy;
+    private ProblemVisibility visibility;
     private LocalDateTime createdAt;
     private List<TestCaseResponse> testCases;
 

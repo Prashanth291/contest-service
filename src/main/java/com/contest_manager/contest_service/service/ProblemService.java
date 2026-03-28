@@ -3,11 +3,14 @@ package com.contest_manager.contest_service.service;
 import com.contest_manager.contest_service.dto.ProblemRequest;
 import com.contest_manager.contest_service.dto.ProblemResponse;
 import com.contest_manager.contest_service.entity.Problem;
+import com.contest_manager.contest_service.entity.ProblemVisibility;
 import com.contest_manager.contest_service.entity.TestCase;
 import com.contest_manager.contest_service.repository.ProblemRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
@@ -20,9 +23,19 @@ public class ProblemService {
     private final ProblemRepository problemRepository;
 
     @Transactional(readOnly = true)
-    public List<ProblemResponse> getAllProblems() {
-        return problemRepository.findAll()
-                .stream()
+    public List<ProblemResponse> getProblems(String createdBy, ProblemVisibility visibility,
+            boolean includeOwnPrivate) {
+        List<Problem> problems;
+        if (visibility != null) {
+            problems = problemRepository.findByVisibilityOrVisibilityIsNull(visibility);
+        } else if (includeOwnPrivate && createdBy != null && !createdBy.isBlank()) {
+            problems = problemRepository.findByCreatedByOrVisibilityOrVisibilityIsNull(createdBy,
+                    ProblemVisibility.GLOBAL);
+        } else {
+            problems = problemRepository.findByVisibilityOrVisibilityIsNull(ProblemVisibility.GLOBAL);
+        }
+
+        return problems.stream()
                 .map(this::mapToProblemResponse)
                 .collect(Collectors.toList());
     }
@@ -38,17 +51,16 @@ public class ProblemService {
                 .difficulty(request.getDifficulty())
                 .baseScore(request.getBaseScore())
                 .createdBy(request.getCreatedBy())
+                .visibility(request.getVisibility() != null ? request.getVisibility() : ProblemVisibility.PRIVATE)
                 .build();
 
         if (request.getTestCases() != null && !request.getTestCases().isEmpty()) {
-            List<TestCase> testCases = request.getTestCases().stream().map(tcDto ->
-                    TestCase.builder()
-                            .problem(problem)
-                            .input(tcDto.getInput())
-                            .expectedOutput(tcDto.getExpectedOutput())
-                            .isSample(tcDto.getIsSample())
-                            .build()
-            ).collect(Collectors.toList());
+            List<TestCase> testCases = request.getTestCases().stream().map(tcDto -> TestCase.builder()
+                    .problem(problem)
+                    .input(tcDto.getInput())
+                    .expectedOutput(tcDto.getExpectedOutput())
+                    .isSample(tcDto.getIsSample())
+                    .build()).collect(Collectors.toList());
             problem.setTestCases(testCases);
         }
 
@@ -57,9 +69,19 @@ public class ProblemService {
     }
 
     @Transactional(readOnly = true)
-    public ProblemResponse getProblem(String id) {
+    public ProblemResponse getProblem(String id, String requesterId) {
         Problem problem = problemRepository.findById(UUID.fromString(id))
-                .orElseThrow(() -> new RuntimeException("Problem not found with ID: " + id));
+                .orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Problem not found with ID: " + id));
+
+        boolean isOwner = requesterId != null && !requesterId.isBlank() && requesterId.equals(problem.getCreatedBy());
+        ProblemVisibility effectiveVisibility = problem.getVisibility() == null ? ProblemVisibility.GLOBAL
+                : problem.getVisibility();
+
+        if (effectiveVisibility == ProblemVisibility.PRIVATE && !isOwner) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Problem is private");
+        }
+
         return mapToProblemResponse(problem);
     }
 
@@ -75,18 +97,19 @@ public class ProblemService {
         problem.setConstraints(request.getConstraints());
         problem.setDifficulty(request.getDifficulty());
         problem.setBaseScore(request.getBaseScore());
+        if (request.getVisibility() != null) {
+            problem.setVisibility(request.getVisibility());
+        }
 
         // Replace old test cases with new ones
         problem.getTestCases().clear();
         if (request.getTestCases() != null && !request.getTestCases().isEmpty()) {
-            List<TestCase> testCases = request.getTestCases().stream().map(tcDto ->
-                    TestCase.builder()
-                            .problem(problem)
-                            .input(tcDto.getInput())
-                            .expectedOutput(tcDto.getExpectedOutput())
-                            .isSample(tcDto.getIsSample())
-                            .build()
-            ).collect(Collectors.toList());
+            List<TestCase> testCases = request.getTestCases().stream().map(tcDto -> TestCase.builder()
+                    .problem(problem)
+                    .input(tcDto.getInput())
+                    .expectedOutput(tcDto.getExpectedOutput())
+                    .isSample(tcDto.getIsSample())
+                    .build()).collect(Collectors.toList());
             problem.getTestCases().addAll(testCases);
         }
 
@@ -123,6 +146,7 @@ public class ProblemService {
                 .baseScore(problem.getBaseScore())
                 .createdBy(problem.getCreatedBy())
                 .createdAt(problem.getCreatedAt())
+                .visibility(problem.getVisibility() == null ? ProblemVisibility.GLOBAL : problem.getVisibility())
                 .testCases(testCaseResponses)
                 .build();
     }

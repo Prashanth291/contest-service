@@ -2,6 +2,7 @@ package com.contest_manager.contest_service.controller;
 
 import com.contest_manager.contest_service.dto.ProblemRequest;
 import com.contest_manager.contest_service.dto.ProblemResponse;
+import com.contest_manager.contest_service.entity.ProblemVisibility;
 import com.contest_manager.contest_service.service.ProblemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,8 +19,11 @@ public class ProblemController {
     private final ProblemService problemService;
 
     @GetMapping
-    public ResponseEntity<List<ProblemResponse>> getAllProblems() {
-        return ResponseEntity.ok(problemService.getAllProblems());
+    public ResponseEntity<List<ProblemResponse>> getProblems(
+            @RequestParam(required = false) String createdBy,
+            @RequestParam(required = false) ProblemVisibility visibility,
+            @RequestParam(defaultValue = "true") boolean includeOwnPrivate) {
+        return ResponseEntity.ok(problemService.getProblems(createdBy, visibility, includeOwnPrivate));
     }
 
     @PostMapping
@@ -28,8 +32,9 @@ public class ProblemController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProblemResponse> getProblem(@PathVariable String id) {
-        return ResponseEntity.ok(problemService.getProblem(id));
+    public ResponseEntity<ProblemResponse> getProblem(@PathVariable String id,
+            @RequestParam(required = false) String requesterId) {
+        return ResponseEntity.ok(problemService.getProblem(id, requesterId));
     }
 
     @PutMapping("/{id}")
