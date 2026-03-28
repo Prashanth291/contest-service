@@ -19,6 +19,14 @@ public class ProblemService {
 
     private final ProblemRepository problemRepository;
 
+    @Transactional(readOnly = true)
+    public List<ProblemResponse> getAllProblems() {
+        return problemRepository.findAll()
+                .stream()
+                .map(this::mapToProblemResponse)
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public ProblemResponse createProblem(ProblemRequest request) {
         Problem problem = Problem.builder()

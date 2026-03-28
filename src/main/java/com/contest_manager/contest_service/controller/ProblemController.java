@@ -8,12 +8,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/problems")
 @RequiredArgsConstructor
 public class ProblemController {
 
     private final ProblemService problemService;
+
+    @GetMapping
+    public ResponseEntity<List<ProblemResponse>> getAllProblems() {
+        return ResponseEntity.ok(problemService.getAllProblems());
+    }
 
     @PostMapping
     public ResponseEntity<ProblemResponse> createProblem(@RequestBody ProblemRequest request) {
