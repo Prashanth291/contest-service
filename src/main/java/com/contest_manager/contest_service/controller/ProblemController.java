@@ -22,8 +22,10 @@ public class ProblemController {
     public ResponseEntity<List<ProblemResponse>> getProblems(
             @RequestParam(required = false) String createdBy,
             @RequestParam(required = false) ProblemVisibility visibility,
-            @RequestParam(defaultValue = "true") boolean includeOwnPrivate) {
-        return ResponseEntity.ok(problemService.getProblems(createdBy, visibility, includeOwnPrivate));
+            @RequestParam(defaultValue = "true") boolean includeOwnPrivate,
+            @RequestParam(required = false) String requesterRole) {
+        boolean isAdmin = requesterRole != null && requesterRole.equalsIgnoreCase("ADMIN");
+        return ResponseEntity.ok(problemService.getProblems(createdBy, visibility, includeOwnPrivate, isAdmin));
     }
 
     @PostMapping
@@ -33,8 +35,17 @@ public class ProblemController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ProblemResponse> getProblem(@PathVariable String id,
-            @RequestParam(required = false) String requesterId) {
-        return ResponseEntity.ok(problemService.getProblem(id, requesterId));
+            @RequestParam(required = false) String requesterId,
+            @RequestParam(required = false) String requesterRole) {
+        boolean isAdmin = requesterRole != null && requesterRole.equalsIgnoreCase("ADMIN");
+        return ResponseEntity.ok(problemService.getProblem(id, requesterId, isAdmin));
+    }
+
+    @PutMapping("/{id}/promote")
+    public ResponseEntity<ProblemResponse> promoteProblem(@PathVariable String id,
+            @RequestParam(required = false) String requesterRole) {
+        boolean isAdmin = requesterRole != null && requesterRole.equalsIgnoreCase("ADMIN");
+        return ResponseEntity.ok(problemService.promoteProblem(id, isAdmin));
     }
 
     @PutMapping("/{id}")

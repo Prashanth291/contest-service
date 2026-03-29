@@ -4,7 +4,9 @@ import com.contest_manager.contest_service.dto.AssignProblemRequest;
 import com.contest_manager.contest_service.dto.ContestRequest;
 import com.contest_manager.contest_service.dto.ContestResponse;
 import com.contest_manager.contest_service.dto.JoinContestRequest;
+import com.contest_manager.contest_service.dto.ProblemResponse;
 import com.contest_manager.contest_service.service.ContestService;
+import com.contest_manager.contest_service.service.ProblemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,7 @@ import java.util.UUID;
 public class ContestController {
 
     private final ContestService contestService;
+    private final ProblemService problemService;
 
     @PostMapping
     public ResponseEntity<ContestResponse> createContest(@RequestBody ContestRequest request) {
@@ -31,8 +34,22 @@ public class ContestController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ContestResponse> getContest(@PathVariable String id) {
-        return ResponseEntity.ok(contestService.getContest(id));
+    public ResponseEntity<ContestResponse> getContest(@PathVariable String id,
+            @RequestHeader(value = "X-User-Id", required = false) String requesterId) {
+        return ResponseEntity.ok(contestService.getContest(id, requesterId));
+    }
+
+    @GetMapping("/{id}/problems/{problemId}")
+    public ResponseEntity<ProblemResponse> getContestProblem(
+            @PathVariable String id,
+            @PathVariable String problemId,
+            @RequestHeader(value = "X-User-Id", required = false) String requesterId,
+            @RequestHeader(value = "X-User-Role", required = false) String requesterRole) {
+        boolean isAdmin = requesterRole != null && requesterRole.equalsIgnoreCase("ADMIN");
+        if (!contestService.canAccessContestProblem(UUID.fromString(id), requesterId, isAdmin, UUID.fromString(problemId))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(problemService.getProblemWithoutVisibilityCheck(problemId));
     }
 
     @PutMapping("/{id}")

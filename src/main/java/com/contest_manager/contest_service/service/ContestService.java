@@ -46,21 +46,21 @@ public class ContestService {
                 .build();
 
         Contest savedContest = contestRepository.save(contest);
-        return mapToContestResponse(savedContest);
+        return mapToContestResponse(savedContest, null);
     }
 
     @Transactional(readOnly = true)
     public List<ContestResponse> getAllContests() {
         return contestRepository.findAll().stream()
-                .map(this::mapToContestResponse)
+                .map(c -> mapToContestResponse(c, null))
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public ContestResponse getContest(String id) {
+    public ContestResponse getContest(String id, String requesterId) {
         Contest contest = contestRepository.findById(UUID.fromString(id))
                 .orElseThrow(() -> new RuntimeException("Contest not found with ID: " + id));
-        return mapToContestResponse(contest);
+        return mapToContestResponse(contest, requesterId);
     }
 
     @Transactional
@@ -84,7 +84,7 @@ public class ContestService {
         }
 
         Contest updatedContest = contestRepository.save(contest);
-        return mapToContestResponse(updatedContest);
+        return mapToContestResponse(updatedContest, null);
     }
 
     @Transactional
@@ -95,13 +95,17 @@ public class ContestService {
         contestRepository.deleteById(UUID.fromString(id));
     }
 
-
     /*
-    * Contest Registration
-    * */
+     * Contest Registration
+     */
     public void registerForContest(String joinCode, String userId, JoinContestRequest request) {
         Contest contest = contestRepository.findByJoinCode(joinCode)
                 .orElseThrow(() -> new RuntimeException("Contest not found with code: " + joinCode));
+
+        // Creator cannot register as participant
+        if (contest.getCreatedBy() != null && contest.getCreatedBy().equals(userId)) {
+            throw new RuntimeException("Contest creator cannot join as participant");
+        }
 
         // 1. Check password
         if (contest.getPassword() != null && !contest.getPassword().equals(request.getPassword())) {
@@ -219,11 +223,11 @@ public class ContestService {
     }
 
     // --- Helper Method ---
-    private ContestResponse mapToContestResponse(Contest contest) {
+    private ContestResponse mapToContestResponse(Contest contest, String requesterId) {
         // Safe null check for the list
-        List<ContestResponse.ContestProblemDto> problemDtos = contest.getContestProblems() == null ?
-                new java.util.ArrayList<>() :
-                contest.getContestProblems().stream()
+        List<ContestResponse.ContestProblemDto> problemDtos = contest.getContestProblems() == null
+                ? new java.util.ArrayList<>()
+                : contest.getContestProblems().stream()
                         .map(cp -> ContestResponse.ContestProblemDto.builder()
                                 .problemId(cp.getProblem().getId().toString())
                                 .title(cp.getProblem().getTitle())
@@ -233,6 +237,10 @@ public class ContestService {
                                 .build())
                         .collect(Collectors.toList());
 
+        boolean registered = false;
+        if (requesterId != null && !requesterId.isBlank()) {
+            registered = registrationRepository.existsByContestIdAndUserId(contest.getId(), requesterId);
+        }
         return ContestResponse.builder()
                 .id(contest.getId().toString())
                 .title(contest.getTitle())
@@ -242,6 +250,8 @@ public class ContestService {
                 .status(contest.getStatus())
                 .createdBy(contest.getCreatedBy())
                 .joinCode(contest.getJoinCode())
+                .registered(registered)
+                .requiresPassword(contest.getPassword() != null)
                 .problems(problemDtos)
                 .build();
     }
@@ -259,5 +269,26 @@ public class ContestService {
                 .orElseThrow(() -> new RuntimeException("Participant is not registered in this contest"));
 
         registrationRepository.delete(registration);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean canAccessContestProblem(UUID contestId, String requesterId, boolean isAdmin, UUID problemId) {
+        Contest contest = contestRepository.findById(contestId)
+                .orElseThrow(() -> new RuntimeException("Contest not found"));
+
+        // Admins always allowed
+        if (isAdmin) {
+            return true;
+        }
+
+        // Must be creator or registered participant
+        boolean isCreator = requesterId != null && requesterId.equals(contest.getCreatedBy());
+        boolean isParticipant = requesterId != null && registrationRepository.existsByContestIdAndUserId(contestId, requesterId);
+        if (!isCreator && !isParticipant) {
+            return false;
+        }
+
+        // Ensure problem assigned to contest
+        return contestProblemRepository.findByContestIdAndProblemId(contestId, problemId).isPresent();
     }
 }

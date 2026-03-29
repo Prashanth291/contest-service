@@ -22,6 +22,8 @@ public class ContestResponse {
     private ContestStatus status;
     private String createdBy;
     private String joinCode;
+    private Boolean registered;
+    private Boolean requiresPassword;
     private List<ContestProblemDto> problems;
 
     @Data

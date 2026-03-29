@@ -24,9 +24,11 @@ public class ProblemService {
 
     @Transactional(readOnly = true)
     public List<ProblemResponse> getProblems(String createdBy, ProblemVisibility visibility,
-            boolean includeOwnPrivate) {
+            boolean includeOwnPrivate, boolean isAdmin) {
         List<Problem> problems;
-        if (visibility != null) {
+        if (isAdmin) {
+            problems = problemRepository.findAll();
+        } else if (visibility != null) {
             problems = problemRepository.findByVisibilityOrVisibilityIsNull(visibility);
         } else if (includeOwnPrivate && createdBy != null && !createdBy.isBlank()) {
             problems = problemRepository.findByCreatedByOrVisibilityOrVisibilityIsNull(createdBy,
@@ -69,7 +71,7 @@ public class ProblemService {
     }
 
     @Transactional(readOnly = true)
-    public ProblemResponse getProblem(String id, String requesterId) {
+    public ProblemResponse getProblem(String id, String requesterId, boolean isAdmin) {
         Problem problem = problemRepository.findById(UUID.fromString(id))
                 .orElseThrow(
                         () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Problem not found with ID: " + id));
@@ -78,11 +80,26 @@ public class ProblemService {
         ProblemVisibility effectiveVisibility = problem.getVisibility() == null ? ProblemVisibility.GLOBAL
                 : problem.getVisibility();
 
-        if (effectiveVisibility == ProblemVisibility.PRIVATE && !isOwner) {
+        if (!isAdmin && effectiveVisibility == ProblemVisibility.PRIVATE && !isOwner) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Problem is private");
         }
 
         return mapToProblemResponse(problem);
+    }
+
+    @Transactional
+    public ProblemResponse promoteProblem(String id, boolean isAdmin) {
+        if (!isAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only admins can promote problems");
+        }
+
+        Problem problem = problemRepository.findById(UUID.fromString(id))
+                .orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Problem not found with ID: " + id));
+
+        problem.setVisibility(ProblemVisibility.GLOBAL);
+        Problem updatedProblem = problemRepository.save(problem);
+        return mapToProblemResponse(updatedProblem);
     }
 
     @Transactional
@@ -149,5 +166,12 @@ public class ProblemService {
                 .visibility(problem.getVisibility() == null ? ProblemVisibility.GLOBAL : problem.getVisibility())
                 .testCases(testCaseResponses)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public ProblemResponse getProblemWithoutVisibilityCheck(String id) {
+        Problem problem = problemRepository.findById(UUID.fromString(id))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Problem not found with ID: " + id));
+        return mapToProblemResponse(problem);
     }
 }
